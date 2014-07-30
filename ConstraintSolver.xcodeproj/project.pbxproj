@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1F53DC8819888F2300343402 /* ConstraintSolver.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F53DC8719888F2300343402 /* ConstraintSolver.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1F53DC8E19888F2300343402 /* ConstraintSolver.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1F53DC8219888F2300343402 /* ConstraintSolver.framework */; };
 		1F53DC9519888F2300343402 /* ConstraintSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F53DC9419888F2300343402 /* ConstraintSolverTests.swift */; };
+		1F53DCCD1988919900343402 /* ConstraintSolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F53DCCC1988919900343402 /* ConstraintSolver.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,10 +25,10 @@
 /* Begin PBXFileReference section */
 		1F53DC8219888F2300343402 /* ConstraintSolver.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ConstraintSolver.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F53DC8619888F2300343402 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1F53DC8719888F2300343402 /* ConstraintSolver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ConstraintSolver.h; sourceTree = "<group>"; };
 		1F53DC8D19888F2300343402 /* ConstraintSolverTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ConstraintSolverTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1F53DC9319888F2300343402 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1F53DC9419888F2300343402 /* ConstraintSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConstraintSolverTests.swift; sourceTree = "<group>"; };
+		1F53DCCC1988919900343402 /* ConstraintSolver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConstraintSolver.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,7 +71,7 @@
 		1F53DC8419888F2300343402 /* ConstraintSolver */ = {
 			isa = PBXGroup;
 			children = (
-				1F53DC8719888F2300343402 /* ConstraintSolver.h */,
+				1F53DCCC1988919900343402 /* ConstraintSolver.swift */,
 				1F53DC8519888F2300343402 /* Supporting Files */,
 			);
 			path = ConstraintSolver;
@@ -109,7 +109,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1F53DC8819888F2300343402 /* ConstraintSolver.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -210,6 +209,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1F53DCCD1988919900343402 /* ConstraintSolver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,6 +316,7 @@
 		1F53DC9919888F2300343402 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -327,12 +328,14 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
 		1F53DC9A19888F2300343402 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
