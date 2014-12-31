@@ -1,0 +1,530 @@
+//
+//  Constraint.swift
+//  ConstraintSolver
+//
+//  Adapted from Python source by Timothy Palpant on 7/29/14.
+//
+//  Copyright (c) 2005-2014 - Gustavo Niemeyer <gustavo@niemeyer.net>
+//
+//  All rights reserved.
+//
+//  Redistribution and use in source and binary forms, with or without
+//  modification, are permitted provided that the following conditions are met:
+//
+//  1. Redistributions of source code must retain the above copyright notice, this
+//     list of conditions and the following disclaimer.
+//  2. Redistributions in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+//  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+//  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+//  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+//  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+//  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+//  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+//  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+//  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+//  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+
+
+public protocol Constraint {
+  func evaluate(forwardCheck: Bool) -> Bool
+}
+
+// A constraint that acts on Variables of type T
+public class ConstraintOf<T: Hashable> : Constraint {
+  let variables: [VariableOf<T>]
+  
+  init(seq: SequenceOf<VariableOf<T>>) {
+    variables = Array(seq)
+    for variable in variables {
+      variable.constraints.append(self)
+    }
+  }
+  
+  public func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    return false
+  }
+  
+  private func preprocess() -> Bool {
+    if variables.count == 1 {
+      let variable = variables.first!
+      var domain = variable.domain
+      for value in domain {
+        variable.assignment = value
+        // TODO: do we need to set it back to nil?
+        if !evaluate() {
+          domain.remove(value)
+        }
+      }
+      
+      return true
+    }
+    
+    return false
+  }
+}
+
+public class AllDifferentConstraint<T: Hashable> : ConstraintOf<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    var seen = Set<T>()
+    for variable in variables {
+      if let value = variable.assignment {
+        if seen.contains(value) {
+          return false
+        }
+        seen.add(value)
+      }
+    }
+    
+    if forwardCheck {
+      for variable in variables {
+        if variable.assignment == nil {
+          var domain = variable.domain
+          for value in seen {
+            if domain.contains(value) {
+              domain.hideValue(value)
+              if domain.isEmpty() {
+                return false
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
+public class AllEqualConstraint<T: Hashable> : ConstraintOf<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    var singlevalue: T? = nil
+    for variable in variables {
+      if singlevalue == nil {
+        singlevalue = variable.assignment
+      } else if let value = variable.assignment {
+        if value != singlevalue {
+          return false
+        }
+      }
+    }
+    
+    if forwardCheck {
+      if let sv = singlevalue {
+        for variable in variables {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            if !domain.contains(sv) {
+              return false
+            }
+            for value in domain {
+              if value != sv {
+                domain.hideValue(value)
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
+private class SumConstraint<T where T:Hashable, T:Numeric> : ConstraintOf<T> {
+  let sum: T
+  let multipliers: [T]?
+  
+  init(seq: SequenceOf<VariableOf<T>>, sum: T, multipliers: [T]?=nil) {
+    self.sum = sum
+    self.multipliers = multipliers
+    super.init(seq: seq)
+  }
+}
+
+public class MaxSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    let maxsum = self.sum
+    var sum: T = 0
+    if let m = multipliers {
+      for (variable, multiplier) in Zip2(variables, m) {
+        if let value = variable.assignment {
+          sum = sum + value*multiplier
+        }
+      }
+      
+      if sum > maxsum {
+        return false
+      }
+      
+      if forwardCheck {
+        for (variable, multiplier) in Zip2(variables, m) {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            for value in domain {
+              if sum+value*multiplier > maxsum {
+                domain.hideValue(value)
+              }
+            }
+            if domain.isEmpty() {
+              return false
+            }
+          }
+        }
+      }
+    } else {
+      for variable in variables {
+        if let value = variable.assignment {
+          sum = sum + value
+        }
+      }
+      
+      if sum > maxsum {
+        return false
+      }
+      
+      if forwardCheck {
+        for variable in variables {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            for value in domain {
+              if sum+value > maxsum {
+                domain.hideValue(value)
+              }
+            }
+            if domain.isEmpty() {
+              return false
+            }
+          }
+        }
+      }
+    }
+    
+    return true
+  }
+  
+  private override func preprocess() -> Bool {
+    let finished = super.preprocess()
+    
+    if let m = multipliers {
+      for (variable, multiplier) in Zip2(variables, m) {
+        var domain = variable.domain
+        for value in domain {
+          if value*multiplier > sum {
+            domain.remove(value)
+          }
+        }
+      }
+    } else {
+      for variable in variables {
+        var domain = variable.domain
+        for value in domain {
+          if value > sum {
+            domain.remove(value)
+          }
+        }
+      }
+    }
+    
+    return finished
+  }
+}
+
+public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    let exactsum = self.sum
+    var sum: T = 0
+    var missing = false
+    if let m = multipliers {
+      for (variable, multiplier) in Zip2(variables, m) {
+        if let value = variable.assignment {
+          sum = sum + value*multiplier
+        } else {
+          missing = true
+        }
+      }
+      
+      if sum > exactsum {
+        return false
+      }
+      
+      if forwardCheck && missing {
+        for (variable, multiplier) in Zip2(variables, m) {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            for value in domain {
+              if sum+value*multiplier > exactsum {
+                domain.hideValue(value)
+              }
+            }
+            if domain.isEmpty() {
+              return false
+            }
+          }
+        }
+      }
+    } else {
+      for variable in variables {
+        if let value = variable.assignment {
+          sum = sum + value
+        } else {
+          missing = true
+        }
+        
+        if sum > exactsum {
+          return false
+        }
+        
+        if forwardCheck && missing {
+          for variable in variables {
+            if variable.assignment == nil {
+              var domain = variable.domain
+              for value in domain {
+                if sum+value > exactsum {
+                  domain.hideValue(value)
+                }
+              }
+              if domain.isEmpty() {
+                return false
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return missing ? sum <= exactsum : sum == exactsum
+  }
+  
+  private override func preprocess() -> Bool {
+    let finished = super.preprocess()
+    
+    if let m = multipliers {
+      for (variable, multiplier) in Zip2(variables, m) {
+        var domain = variable.domain
+        for value in domain {
+          if value*multiplier > sum {
+            domain.remove(value)
+          }
+        }
+      }
+    } else {
+      for variable in variables {
+        var domain = variable.domain
+        for value in domain {
+          if value > sum {
+            domain.remove(value)
+          }
+        }
+      }
+    }
+  
+    return finished
+  }
+}
+
+public class MinSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    let minsum = self.sum
+    var sum: T = 0
+    if let m = multipliers {
+      for (variable, multiplier) in Zip2(variables, m) {
+        if let value = variable.assignment {
+          sum = sum + value*multiplier
+        } else {
+          return true
+        }
+      }
+    } else {
+      for variable in variables {
+        if let value = variable.assignment {
+          sum = sum + value
+        } else {
+          return true
+        }
+      }
+    }
+    
+    return sum >= minsum
+  }
+}
+
+private class SetConstraint<T: Hashable> : ConstraintOf<T> {
+  let set: Set<T>
+  
+  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>) {
+    self.set = set
+    super.init(seq: seq)
+  }
+}
+
+public class InSetConstraint<T: Hashable> : SetConstraint<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    return true
+  }
+  
+  private override func preprocess() -> Bool {
+    for variable in variables {
+      var domain = variable.domain
+      for value in domain {
+        if !set.contains(value) {
+          domain.remove(value)
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
+public class NotInSetConstraint<T: Hashable> : SetConstraint<T> {
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    return true
+  }
+  
+  private override func preprocess() -> Bool {
+    for variable in variables {
+      var domain = variable.domain
+      for value in domain {
+        if set.contains(value) {
+          domain.remove(value)
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
+public class SomeInSetConstraint<T: Hashable> : SetConstraint<T> {
+  let n: Int
+  let exact: Bool
+  
+  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>, n: Int=1, exact: Bool=false) {
+    self.n = n
+    self.exact = exact
+    super.init(seq: seq, set: set)
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    var missing = 0
+    var found = 0
+    for variable in variables {
+      if let value = variable.assignment {
+        found += Int(set.contains(value))
+      } else {
+        missing++
+      }
+    }
+    
+    if missing > 0 {
+      if exact {
+        if !(found <= n && n <= missing+found) {
+          return false
+        }
+      } else {
+        if n > missing+found {
+          return false
+        }
+      }
+      
+      if forwardCheck && n-found == missing {
+        // All unassigned variables must be assigned to values in the set
+        for variable in variables {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            for value in domain {
+              if !set.contains(value) {
+                domain.hideValue(value)
+              }
+            }
+            if domain.isEmpty() {
+              return false
+            }
+          }
+        }
+      }
+    } else {
+      if exact {
+        if found != n {
+          return false
+        }
+      } else {
+        if found < n {
+          return false
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
+public class SomeNotInSetConstraint<T: Hashable> : SetConstraint<T> {
+  let n: Int
+  let exact: Bool
+  
+  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>, n: Int=1, exact: Bool=false) {
+    self.n = n
+    self.exact = exact
+    super.init(seq: seq, set: set)
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    var missing = 0
+    var found = 0
+    for variable in variables {
+      if let value = variable.assignment {
+        found += Int(set.contains(value))
+      } else {
+        missing++
+      }
+    }
+    
+    if missing > 0 {
+      if exact {
+        if !(found <= n && n <= missing+found) {
+          return false
+        }
+      } else {
+        if n > missing+found {
+          return false
+        }
+      }
+      
+      if forwardCheck && n-found == missing {
+        // All unassigned variables must be assigned to values not in the set
+        for variable in variables {
+          if variable.assignment == nil {
+            var domain = variable.domain
+            for value in domain {
+              if set.contains(value) {
+                domain.hideValue(value)
+              }
+            }
+            if domain.isEmpty() {
+              return false
+            }
+          }
+        }
+      }
+    } else {
+      if exact {
+        if found != n {
+          return false
+        }
+      } else {
+        if found < n {
+          return false
+        }
+      }
+    }
+    
+    return true
+  }
+}
+
