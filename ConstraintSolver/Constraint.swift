@@ -29,17 +29,21 @@
 //  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-
-public protocol Constraint {
-  func evaluate(forwardCheck: Bool) -> Bool
+public protocol Summable {
+  func +(lhs: Self, rhs: Self) -> Self
 }
 
+public protocol Numeric : Comparable, Summable, IntegerLiteralConvertible { }
+extension Int : Numeric { }
+extension Float : Numeric { }
+extension Double : Numeric { }
+
 // A constraint that acts on Variables of type T
-public class ConstraintOf<T: Hashable> : Constraint {
-  let variables: [VariableOf<T>]
+public class Constraint<T: Hashable> {
+  let variables: [Variable<T>]
   
-  init(seq: SequenceOf<VariableOf<T>>) {
-    variables = Array(seq)
+  public init(variables: [Variable<T>]) {
+    self.variables = variables
     for variable in variables {
       variable.constraints.append(self)
     }
@@ -49,7 +53,7 @@ public class ConstraintOf<T: Hashable> : Constraint {
     return false
   }
   
-  private func preprocess() -> Bool {
+  public func preprocess() -> Bool {
     if variables.count == 1 {
       let variable = variables.first!
       var domain = variable.domain
@@ -68,7 +72,7 @@ public class ConstraintOf<T: Hashable> : Constraint {
   }
 }
 
-public class AllDifferentConstraint<T: Hashable> : ConstraintOf<T> {
+public class AllDifferentConstraint<T: Hashable> : Constraint<T> {
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     var seen = Set<T>()
     for variable in variables {
@@ -87,7 +91,7 @@ public class AllDifferentConstraint<T: Hashable> : ConstraintOf<T> {
           for value in seen {
             if domain.contains(value) {
               domain.hideValue(value)
-              if domain.isEmpty() {
+              if domain.isEmpty {
                 return false
               }
             }
@@ -100,7 +104,7 @@ public class AllDifferentConstraint<T: Hashable> : ConstraintOf<T> {
   }
 }
 
-public class AllEqualConstraint<T: Hashable> : ConstraintOf<T> {
+public class AllEqualConstraint<T: Hashable> : Constraint<T> {
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     var singlevalue: T? = nil
     for variable in variables {
@@ -135,70 +139,44 @@ public class AllEqualConstraint<T: Hashable> : ConstraintOf<T> {
   }
 }
 
-private class SumConstraint<T where T:Hashable, T:Numeric> : ConstraintOf<T> {
+public class SumConstraint<T where T:Hashable, T:Numeric> : Constraint<T> {
   let sum: T
-  let multipliers: [T]?
   
-  init(seq: SequenceOf<VariableOf<T>>, sum: T, multipliers: [T]?=nil) {
+  public init(variables: [Variable<T>], sum: T) {
     self.sum = sum
-    self.multipliers = multipliers
-    super.init(seq: seq)
+    super.init(variables: variables)
   }
 }
 
 public class MaxSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+  public override init(variables: [Variable<T>], sum: T) {
+    super.init(variables: variables, sum: sum)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     let maxsum = self.sum
     var sum: T = 0
-    if let m = multipliers {
-      for (variable, multiplier) in Zip2(variables, m) {
-        if let value = variable.assignment {
-          sum = sum + value*multiplier
-        }
+    for variable in variables {
+      if let value = variable.assignment {
+        sum = sum + value
       }
-      
-      if sum > maxsum {
-        return false
-      }
-      
-      if forwardCheck {
-        for (variable, multiplier) in Zip2(variables, m) {
-          if variable.assignment == nil {
-            var domain = variable.domain
-            for value in domain {
-              if sum+value*multiplier > maxsum {
-                domain.hideValue(value)
-              }
-            }
-            if domain.isEmpty() {
-              return false
+    }
+    
+    if sum > maxsum {
+      return false
+    }
+    
+    if forwardCheck {
+      for variable in variables {
+        if variable.assignment == nil {
+          var domain = variable.domain
+          for value in domain {
+            if sum+value > maxsum {
+              domain.hideValue(value)
             }
           }
-        }
-      }
-    } else {
-      for variable in variables {
-        if let value = variable.assignment {
-          sum = sum + value
-        }
-      }
-      
-      if sum > maxsum {
-        return false
-      }
-      
-      if forwardCheck {
-        for variable in variables {
-          if variable.assignment == nil {
-            var domain = variable.domain
-            for value in domain {
-              if sum+value > maxsum {
-                domain.hideValue(value)
-              }
-            }
-            if domain.isEmpty() {
-              return false
-            }
+          if domain.isEmpty {
+            return false
           }
         }
       }
@@ -207,25 +185,14 @@ public class MaxSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> 
     return true
   }
   
-  private override func preprocess() -> Bool {
+  public override func preprocess() -> Bool {
     let finished = super.preprocess()
     
-    if let m = multipliers {
-      for (variable, multiplier) in Zip2(variables, m) {
-        var domain = variable.domain
-        for value in domain {
-          if value*multiplier > sum {
-            domain.remove(value)
-          }
-        }
-      }
-    } else {
-      for variable in variables {
-        var domain = variable.domain
-        for value in domain {
-          if value > sum {
-            domain.remove(value)
-          }
+    for variable in variables {
+      var domain = variable.domain
+      for value in domain {
+        if value > sum {
+          domain.remove(value)
         }
       }
     }
@@ -239,13 +206,11 @@ public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T
     let exactsum = self.sum
     var sum: T = 0
     var missing = false
-    if let m = multipliers {
-      for (variable, multiplier) in Zip2(variables, m) {
-        if let value = variable.assignment {
-          sum = sum + value*multiplier
-        } else {
-          missing = true
-        }
+    for variable in variables {
+      if let value = variable.assignment {
+        sum = sum + value
+      } else {
+        missing = true
       }
       
       if sum > exactsum {
@@ -253,44 +218,16 @@ public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T
       }
       
       if forwardCheck && missing {
-        for (variable, multiplier) in Zip2(variables, m) {
+        for variable in variables {
           if variable.assignment == nil {
             var domain = variable.domain
             for value in domain {
-              if sum+value*multiplier > exactsum {
+              if sum+value > exactsum {
                 domain.hideValue(value)
               }
             }
-            if domain.isEmpty() {
+            if domain.isEmpty {
               return false
-            }
-          }
-        }
-      }
-    } else {
-      for variable in variables {
-        if let value = variable.assignment {
-          sum = sum + value
-        } else {
-          missing = true
-        }
-        
-        if sum > exactsum {
-          return false
-        }
-        
-        if forwardCheck && missing {
-          for variable in variables {
-            if variable.assignment == nil {
-              var domain = variable.domain
-              for value in domain {
-                if sum+value > exactsum {
-                  domain.hideValue(value)
-                }
-              }
-              if domain.isEmpty() {
-                return false
-              }
             }
           }
         }
@@ -300,25 +237,14 @@ public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T
     return missing ? sum <= exactsum : sum == exactsum
   }
   
-  private override func preprocess() -> Bool {
+  public override func preprocess() -> Bool {
     let finished = super.preprocess()
-    
-    if let m = multipliers {
-      for (variable, multiplier) in Zip2(variables, m) {
-        var domain = variable.domain
-        for value in domain {
-          if value*multiplier > sum {
-            domain.remove(value)
-          }
-        }
-      }
-    } else {
-      for variable in variables {
-        var domain = variable.domain
-        for value in domain {
-          if value > sum {
-            domain.remove(value)
-          }
+
+    for variable in variables {
+      var domain = variable.domain
+      for value in domain {
+        if value > sum {
+          domain.remove(value)
         }
       }
     }
@@ -331,21 +257,11 @@ public class MinSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> 
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     let minsum = self.sum
     var sum: T = 0
-    if let m = multipliers {
-      for (variable, multiplier) in Zip2(variables, m) {
-        if let value = variable.assignment {
-          sum = sum + value*multiplier
-        } else {
-          return true
-        }
-      }
-    } else {
-      for variable in variables {
-        if let value = variable.assignment {
-          sum = sum + value
-        } else {
-          return true
-        }
+    for variable in variables {
+      if let value = variable.assignment {
+        sum = sum + value
+      } else {
+        return true
       }
     }
     
@@ -353,21 +269,25 @@ public class MinSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> 
   }
 }
 
-private class SetConstraint<T: Hashable> : ConstraintOf<T> {
+public class SetConstraint<T: Hashable> : Constraint<T> {
   let set: Set<T>
   
-  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>) {
+  public init(variables: [Variable<T>], set: Set<T>) {
     self.set = set
-    super.init(seq: seq)
+    super.init(variables: variables)
   }
 }
 
 public class InSetConstraint<T: Hashable> : SetConstraint<T> {
+  public override init(variables: [Variable<T>], set: Set<T>) {
+    super.init(variables: variables, set: set)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     return true
   }
   
-  private override func preprocess() -> Bool {
+  public override func preprocess() -> Bool {
     for variable in variables {
       var domain = variable.domain
       for value in domain {
@@ -386,7 +306,7 @@ public class NotInSetConstraint<T: Hashable> : SetConstraint<T> {
     return true
   }
   
-  private override func preprocess() -> Bool {
+  public override func preprocess() -> Bool {
     for variable in variables {
       var domain = variable.domain
       for value in domain {
@@ -404,10 +324,10 @@ public class SomeInSetConstraint<T: Hashable> : SetConstraint<T> {
   let n: Int
   let exact: Bool
   
-  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>, n: Int=1, exact: Bool=false) {
+  init(variables: [Variable<T>], set: Set<T>, n: Int=1, exact: Bool=false) {
     self.n = n
     self.exact = exact
-    super.init(seq: seq, set: set)
+    super.init(variables: variables, set: set)
   }
   
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
@@ -442,7 +362,7 @@ public class SomeInSetConstraint<T: Hashable> : SetConstraint<T> {
                 domain.hideValue(value)
               }
             }
-            if domain.isEmpty() {
+            if domain.isEmpty {
               return false
             }
           }
@@ -468,10 +388,10 @@ public class SomeNotInSetConstraint<T: Hashable> : SetConstraint<T> {
   let n: Int
   let exact: Bool
   
-  init(seq: SequenceOf<VariableOf<T>>, set: Set<T>, n: Int=1, exact: Bool=false) {
+  init(variables: [Variable<T>], set: Set<T>, n: Int=1, exact: Bool=false) {
     self.n = n
     self.exact = exact
-    super.init(seq: seq, set: set)
+    super.init(variables: variables, set: set)
   }
   
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
@@ -506,7 +426,7 @@ public class SomeNotInSetConstraint<T: Hashable> : SetConstraint<T> {
                 domain.hideValue(value)
               }
             }
-            if domain.isEmpty() {
+            if domain.isEmpty {
               return false
             }
           }

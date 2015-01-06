@@ -29,182 +29,166 @@
 //  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-
-// Protocol representing a set of possible values for a variable
-// The domain will be pruned by solvers for the given problem
-public protocol Domain {
-  func isEmpty() -> Bool
-  func resetState()
-  func pushState()
-  func popState()
-  func hideValue(value: Any)
-  func remove(value: Any)
-}
-
-// A variable with its associated Domain
-public protocol Variable {
-  // the Domain that this Variable can take
-  func getDomain() -> Domain
-  // the current value of this Variable, if any
-  func getAssignment() -> Any?
-  func setAssignment(value: Any?)
-  // the set of Constraints that involve this Variable
-  func getConstraints() -> [Constraint]
-}
-
-// Protocol representing a problem,
-// from which you can extract solutions with a solver
-public protocol Problem {
-  mutating func reset()
-  
-  mutating func addVariable(variable: Variable)
-  mutating func addVariables(variables: SequenceOf<Variable>)
-  
-  func getSolution() -> Solution?
-  func getSolutions() -> GeneratorOf<Solution>
-}
-
 // A Domain of Hashable type T, implemented as a Set
-public class DomainOf<T: Hashable> : Domain, SequenceType {
-  private var _values: Set<T>
-  private var _hidden: [T]
-  private var _states: [Int]
+public class Domain<T: Hashable> : SequenceType {
+  private var values: Set<T>
+  private var hidden: [T]
+  private var states: [Int]
   
   public var count: Int {
-    get {
-      return _values.count
-    }
+    return values.count
   }
   
-  init(values: Set<T>) {
-    _values = values
-    _hidden = []
-    _states = []
-  }
-  
-  public func isEmpty() -> Bool {
+  public var isEmpty: Bool {
     return count == 0
   }
   
+  public var elements: [T] {
+    return values.elements
+  }
+  
+  public init<S: SequenceType where S.Generator.Element == T>(values: S) {
+    self.values = Set<T>(values)
+    hidden = []
+    states = []
+  }
+  
+  public convenience init(domain: Domain<T>) {
+    self.init(values: domain.values)
+  }
+  
   public func generate() -> GeneratorOf<T> {
-    return _values.generate()
+    return values.generate()
   }
   
   public func resetState() {
-    _values.extend(_hidden)
-    _hidden.removeAll()
-    _states.removeAll()
+    values.extend(hidden)
+    hidden.removeAll()
+    states.removeAll()
   }
   
   public func pushState() {
-    _states.append(_values.count)
+    states.append(values.count)
   }
   
   public func popState() {
-    var diff = _states.removeLast() - _values.count
+    var diff = states.removeLast() - values.count
     if diff > 0 {
-      _values.extend(_hidden[_hidden.count-diff..<_hidden.count])
-      for i in _hidden.count-diff..<_hidden.count {
-        _hidden.removeLast()
+      values.extend(hidden[hidden.count-diff..<hidden.count])
+      for i in hidden.count-diff..<hidden.count {
+        hidden.removeLast()
       }
     }
   }
   
-  public func hideValue(value: Any) {
-    if let popped = _values.remove(value as T) {
-      _hidden.append(popped)
+  public func hideValue(value: T) {
+    if let popped = values.remove(value) {
+      hidden.append(popped)
     }
   }
   
-  public func remove(value: Any) {
-    _values.remove(value as T)
+  public func remove(value: T) {
+    values.remove(value)
   }
   
   public func contains(value: T) -> Bool {
-    return _values.contains(value)
+    return values.contains(value)
   }
 }
 
-public class VariableOf<T: Hashable> : Variable {
-  public var domain: DomainOf<T>
-  public var assignment: T?
-  public var constraints: [ConstraintOf<T>]
+// MARK: Printable
+
+extension Domain : Printable, DebugPrintable {
+  public var description: String {
+    return "Domain(\(self.values))"
+  }
   
-  init(domain: DomainOf<T>) {
-    self.domain = domain
+  public var debugDescription: String {
+    return description
+  }
+}
+
+public class Variable<T: Hashable> {
+  public var domain: Domain<T>
+  public var assignment: T? {
+    willSet {
+      if let v = newValue {
+        assert(domain.contains(v), "Attempting to set variable to value not in its Domain")
+      }
+    }
+  }
+  
+  public var constraints: [Constraint<T>]
+  
+  public init(domain: Domain<T>) {
+    self.domain = Domain<T>(domain: domain)
     constraints = []
   }
-  
-  public func getDomain() -> Domain {
-    return domain
-  }
-  
-  public func getAssignment() -> Any? {
-    return assignment
-  }
-  
-  public func setAssignment(value: Any?) {
-    self.assignment = value as T?
-  }
-  
-  public func getConstraints() -> [Constraint] {
-    return constraints
-  }
 }
 
-public protocol Summable {
-  func +(lhs: Self, rhs: Self) -> Self
+// MARK: Printable
+
+extension Variable : Printable, DebugPrintable {
+  public var description: String {
+    return "Variable(\(self.assignment))"
+  }
+  
+  public var debugDescription: String {
+    return description
+  }
 }
 
 public protocol Multipliable {
   func *(lhs: Self, rhs: Self) -> Self
 }
 
-public protocol Numeric : Comparable, Summable, Multipliable, IntegerLiteralConvertible { }
-extension Int : Numeric { }
-extension Float : Numeric { }
-extension Double : Numeric { }
-public class NumericVariable<T where T:Hashable, T:Numeric> : VariableOf<T> { }
+public class ScaledVariable<T where T: Hashable, T: Multipliable> : Variable<T> {
+  let multiplier: T
+  var _inner_value: T?
+  
+  public init(domain: Domain<T>, multiplier: T) {
+    self.multiplier = multiplier
+    super.init(domain: domain)
+  }
+  
+  public override var assignment: T? {
+    get {
+      if let iv = self._inner_value {
+        return multiplier*iv
+      }
+      
+      return nil
+    }
+    
+    set {
+      if let v = newValue {
+        assert(domain.contains(v), "Attempting to set variable to value not in its Domain")
+      }
+      
+      self._inner_value = newValue
+    }
+  }
+}
 
-public class ConstrainedProblem : Problem {
-  private var variables : [Variable]
-  private var constraints : [Constraint]
-  public var solver : Solver
+public class Problem<T: Hashable> {
+  public var variables: [Variable<T>] = []
+  public var constraints: [Constraint<T>] = []
+  public var solutions: [[T]] = []
   
-  public init(solver: Solver) {
-    self.solver = solver
-    variables = []
-    constraints = []
-  }
-  
-  public convenience init() {
-    self.init(solver: BacktrackingSolver())
-  }
+  public init() { }
   
   public func reset() {
-    constraints.removeAll()
-    variables.removeAll()
-  }
-
-  public func addVariable(variable: Variable) {
-    variables.append(variable)
-  }
-    
-  public func addVariables(variables: SequenceOf<Variable>) {
+    solutions.removeAll()
     for variable in variables {
-      addVariable(variable)
+      variable.assignment = nil
     }
   }
   
-  public func addConstraint(constraint: Constraint) {
-    constraints.append(constraint)
-  }
+  public func preprocess() {
+    for constraint in constraints {
+      constraint.preprocess()
+    }
   
-  public func getSolution() -> Solution? {
-    return solver.getSolution(variables, constraints: constraints)
-  }
-  
-  public func getSolutions() -> GeneratorOf<Solution> {
-    return solver.getSolutions(variables, constraints: constraints)
+    self.reset()
   }
 }
