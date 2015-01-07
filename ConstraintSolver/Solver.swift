@@ -104,13 +104,13 @@ public class BacktrackingSolver : Solver {
             for domain in pushdomains {
               domain.popState()
             }
-            if values.count > 0 {
+            if !values.isEmpty {
               break
             }
             variable.assignment = nil
           }
           
-          if values.count == 0 {
+          if values.isEmpty {
             return problem.solutions
           }
         }

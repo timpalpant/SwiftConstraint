@@ -18,8 +18,7 @@ class ConstraintSolverTests: XCTestCase {
   
   override func setUp() {
     super.setUp()
-    s = Set<Int>(1...10)
-    d = Domain<Int>(values: s)
+    d = Domain<Int>(values: 1...10)
     v = Variable<Int>(domain: d)
     c = MaxSumConstraint<Int>(variables: [v], sum: 4)
     p = Problem<Int>()
@@ -75,6 +74,21 @@ class ConstraintSolverTests: XCTestCase {
       for v in sol {
         XCTAssertLessThanOrEqual(v, 4, "Solutions are <= 4")
       }
+    }
+  }
+  
+  func testBacktrackingSolver2D() {
+    let v2 = Variable<Int>(domain: d)
+    let c2 = ExactSumConstraint<Int>(variables: [v,v2], sum: 6)
+    p.variables.append(v2)
+    p.constraints.append(c2)
+    
+    let solver = BacktrackingSolver()
+    solver.solve(p)
+    XCTAssertEqual(p.solutions.count, 4, "Problem has 4 solutions")
+    for sol in p.solutions {
+      XCTAssertLessThanOrEqual(sol[0], 4, "First element is <= 4")
+      XCTAssertEqual(sol[0]+sol[1], 6, "Solutions total 6")
     }
   }
   

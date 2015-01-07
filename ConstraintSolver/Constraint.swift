@@ -29,20 +29,11 @@
 //  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-public protocol Summable {
-  func +(lhs: Self, rhs: Self) -> Self
-}
-
-public protocol Numeric : Comparable, Summable, IntegerLiteralConvertible { }
-extension Int : Numeric { }
-extension Float : Numeric { }
-extension Double : Numeric { }
-
 // A constraint that acts on Variables of type T
 public class Constraint<T: Hashable> {
   let variables: [Variable<T>]
   
-  public init(variables: [Variable<T>]) {
+  init(variables: [Variable<T>]) {
     self.variables = variables
     for variable in variables {
       variable.constraints.append(self)
@@ -73,6 +64,10 @@ public class Constraint<T: Hashable> {
 }
 
 public class AllDifferentConstraint<T: Hashable> : Constraint<T> {
+  public override init(variables: [Variable<T>]) {
+    super.init(variables: variables)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     var seen = Set<T>()
     for variable in variables {
@@ -105,6 +100,10 @@ public class AllDifferentConstraint<T: Hashable> : Constraint<T> {
 }
 
 public class AllEqualConstraint<T: Hashable> : Constraint<T> {
+  public override init(variables: [Variable<T>]) {
+    super.init(variables: variables)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     var singlevalue: T? = nil
     for variable in variables {
@@ -139,16 +138,16 @@ public class AllEqualConstraint<T: Hashable> : Constraint<T> {
   }
 }
 
-public class SumConstraint<T where T:Hashable, T:Numeric> : Constraint<T> {
+public class SumConstraint<T where T:Hashable, T:Arithmetic> : Constraint<T> {
   let sum: T
   
-  public init(variables: [Variable<T>], sum: T) {
+  init(variables: [Variable<T>], sum: T) {
     self.sum = sum
     super.init(variables: variables)
   }
 }
 
-public class MaxSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+public class MaxSumConstraint<T where T:Hashable, T:Arithmetic> : SumConstraint<T> {
   public override init(variables: [Variable<T>], sum: T) {
     super.init(variables: variables, sum: sum)
   }
@@ -201,7 +200,11 @@ public class MaxSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> 
   }
 }
 
-public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+public class ExactSumConstraint<T where T:Hashable, T:Arithmetic> : SumConstraint<T> {
+  public override init(variables: [Variable<T>], sum: T) {
+    super.init(variables: variables, sum: sum)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     let exactsum = self.sum
     var sum: T = 0
@@ -253,7 +256,11 @@ public class ExactSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T
   }
 }
 
-public class MinSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> {
+public class MinSumConstraint<T where T:Hashable, T:Arithmetic> : SumConstraint<T> {
+  public override init(variables: [Variable<T>], sum: T) {
+    super.init(variables: variables, sum: sum)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     let minsum = self.sum
     var sum: T = 0
@@ -269,17 +276,117 @@ public class MinSumConstraint<T where T:Hashable, T:Numeric> : SumConstraint<T> 
   }
 }
 
+public class DifferenceConstraint<T where T:Hashable, T:Subtractable> : Constraint<T> {
+  let difference: T
+  var minuend: Variable<T> {
+    return variables[0]
+  }
+  var subtrahend: Variable<T> {
+    return variables[1]
+  }
+
+  public init(minuend: Variable<T>, subtrahend: Variable<T>, difference: T) {
+    self.difference = difference
+    super.init(variables: [minuend, subtrahend])
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    if let m = minuend.assignment {
+      if let s = subtrahend.assignment {
+        return diff(m, subtrahend: s) == difference
+      }
+    }
+    
+    return true
+  }
+  
+  func diff(minuend: T, subtrahend: T) -> T {
+    return minuend - subtrahend
+  }
+}
+
+public class AbsDifferenceConstraint<T where T:Hashable, T:Subtractable, T:SignedNumberType> : DifferenceConstraint<T> {
+  public override init(minuend: Variable<T>, subtrahend: Variable<T>, difference: T) {
+    super.init(minuend: minuend, subtrahend: subtrahend, difference: difference)
+  }
+  
+  override func diff(minuend: T, subtrahend: T) -> T {
+    return abs(minuend - subtrahend)
+  }
+}
+
+public class ProductConstraint<T where T:Hashable, T:Multiplicable, T:IntegerLiteralConvertible> : Constraint<T> {
+  let product: T
+  
+  public init(variables: [Variable<T>], product: T) {
+    self.product = product
+    super.init(variables: variables)
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    let assigned = variables.filter { $0.assignment != nil }
+    if assigned.count < variables.count {
+      return true // some variables missing assignment
+    }
+    
+    let values = assigned.map { v in v.assignment! }
+    let p = reduce(values, 1, {$0 * $1})
+    return p == product
+  }
+}
+
+public class QuotientConstraint<T where T:Hashable, T:Divisible, T:Comparable> : Constraint<T> {
+  let quotient: T
+  var dividend: Variable<T> {
+    return variables[0]
+  }
+  var divisor: Variable<T> {
+    return variables[1]
+  }
+
+  public init(dividend: Variable<T>, divisor: Variable<T>, quotient: T) {
+    self.quotient = quotient
+    super.init(variables: [dividend, divisor])
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    if let x = dividend.assignment {
+      if let y = divisor.assignment {
+        return x/y == quotient
+      }
+    }
+    
+    return true
+  }
+}
+
+public class InvertibleQuotientConstraint<T where T:Hashable, T:Divisible, T:Comparable> : QuotientConstraint<T> {
+  public override init(dividend: Variable<T>, divisor: Variable<T>, quotient: T) {
+    super.init(dividend: dividend, divisor: divisor, quotient: quotient)
+  }
+  
+  public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
+    if let x = dividend.assignment {
+      if let y = divisor.assignment {
+        return (x/y == quotient) || (y/x == quotient)
+      }
+    }
+    
+    return true
+  }
+}
+
 public class SetConstraint<T: Hashable> : Constraint<T> {
   let set: Set<T>
   
-  public init(variables: [Variable<T>], set: Set<T>) {
-    self.set = set
+  init<S: SequenceType where S.Generator.Element == T>(variables: [Variable<T>], set: S) {
+    self.set = Set<T>(set)
     super.init(variables: variables)
   }
 }
 
 public class InSetConstraint<T: Hashable> : SetConstraint<T> {
-  public override init(variables: [Variable<T>], set: Set<T>) {
+  public override init<S: SequenceType where S.Generator.Element == T>(variables: [Variable<T>], set: S) {
     super.init(variables: variables, set: set)
   }
   
@@ -302,6 +409,10 @@ public class InSetConstraint<T: Hashable> : SetConstraint<T> {
 }
 
 public class NotInSetConstraint<T: Hashable> : SetConstraint<T> {
+  public override init<S: SequenceType where S.Generator.Element == T>(variables: [Variable<T>], set: S) {
+    super.init(variables: variables, set: set)
+  }
+  
   public override func evaluate(_ forwardCheck: Bool=false) -> Bool {
     return true
   }
@@ -324,7 +435,7 @@ public class SomeInSetConstraint<T: Hashable> : SetConstraint<T> {
   let n: Int
   let exact: Bool
   
-  init(variables: [Variable<T>], set: Set<T>, n: Int=1, exact: Bool=false) {
+  public init<S: SequenceType where S.Generator.Element == T>(variables: [Variable<T>], set: S, n: Int=1, exact: Bool=false) {
     self.n = n
     self.exact = exact
     super.init(variables: variables, set: set)
@@ -388,7 +499,7 @@ public class SomeNotInSetConstraint<T: Hashable> : SetConstraint<T> {
   let n: Int
   let exact: Bool
   
-  init(variables: [Variable<T>], set: Set<T>, n: Int=1, exact: Bool=false) {
+  public init<S: SequenceType where S.Generator.Element == T>(variables: [Variable<T>], set: S, n: Int=1, exact: Bool=false) {
     self.n = n
     self.exact = exact
     super.init(variables: variables, set: set)

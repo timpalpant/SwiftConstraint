@@ -58,7 +58,7 @@ public class Domain<T: Hashable> : SequenceType {
   }
   
   public func generate() -> GeneratorOf<T> {
-    return values.generate()
+    return GeneratorOf<T>(elements.generate())
   }
   
   public func resetState() {
@@ -138,11 +138,7 @@ extension Variable : Printable, DebugPrintable {
   }
 }
 
-public protocol Multipliable {
-  func *(lhs: Self, rhs: Self) -> Self
-}
-
-public class ScaledVariable<T where T: Hashable, T: Multipliable> : Variable<T> {
+public class ScaledVariable<T where T: Hashable, T: Multiplicable> : Variable<T> {
   let multiplier: T
   var _inner_value: T?
   
