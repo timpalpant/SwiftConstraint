@@ -44,7 +44,7 @@ public class Domain<T: Hashable> : SequenceType {
   }
   
   public var elements: [T] {
-    return values.elements
+    return Array(values)
   }
   
   public init<S: SequenceType where S.Generator.Element == T>(values: S) {
@@ -62,7 +62,7 @@ public class Domain<T: Hashable> : SequenceType {
   }
   
   public func resetState() {
-    values.extend(hidden)
+    values.unionInPlace(hidden)
     hidden.removeAll()
     states.removeAll()
   }
@@ -74,7 +74,7 @@ public class Domain<T: Hashable> : SequenceType {
   public func popState() {
     var diff = states.removeLast() - values.count
     if diff > 0 {
-      values.extend(hidden[hidden.count-diff..<hidden.count])
+      values.unionInPlace(hidden[hidden.count-diff..<hidden.count])
       for i in hidden.count-diff..<hidden.count {
         hidden.removeLast()
       }

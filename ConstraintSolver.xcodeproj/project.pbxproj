@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1F0520E61A5C693000540AD5 /* Set.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F8515941A53A2A800F873D7 /* Set.swift */; };
 		1F0520E71A5C693200540AD5 /* Constraint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F956F581988ADD000621D15 /* Constraint.swift */; };
 		1F0520E81A5C693400540AD5 /* Problem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F956F5A1988AE2500621D15 /* Problem.swift */; };
 		1F0520E91A5C693600540AD5 /* Solver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F53DCCC1988919900343402 /* Solver.swift */; };
@@ -16,7 +15,6 @@
 		1F53DC9519888F2300343402 /* ConstraintSolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F53DC9419888F2300343402 /* ConstraintSolverTests.swift */; };
 		1F53DCCD1988919900343402 /* Solver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F53DCCC1988919900343402 /* Solver.swift */; };
 		1F7872101A5C96FB00BFECA8 /* NumericTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F0521411A5C93FD00540AD5 /* NumericTypes.swift */; };
-		1F8515951A53A2A800F873D7 /* Set.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F8515941A53A2A800F873D7 /* Set.swift */; };
 		1F956F591988ADD000621D15 /* Constraint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F956F581988ADD000621D15 /* Constraint.swift */; };
 		1F956F5B1988AE2500621D15 /* Problem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F956F5A1988AE2500621D15 /* Problem.swift */; };
 /* End PBXBuildFile section */
@@ -40,7 +38,6 @@
 		1F53DC9319888F2300343402 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1F53DC9419888F2300343402 /* ConstraintSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConstraintSolverTests.swift; sourceTree = "<group>"; };
 		1F53DCCC1988919900343402 /* Solver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Solver.swift; sourceTree = "<group>"; };
-		1F8515941A53A2A800F873D7 /* Set.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Set.swift; sourceTree = "<group>"; };
 		1F956F581988ADD000621D15 /* Constraint.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Constraint.swift; sourceTree = "<group>"; };
 		1F956F5A1988AE2500621D15 /* Problem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Problem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -93,7 +90,6 @@
 		1F53DC8419888F2300343402 /* ConstraintSolver */ = {
 			isa = PBXGroup;
 			children = (
-				1F8515941A53A2A800F873D7 /* Set.swift */,
 				1F956F581988ADD000621D15 /* Constraint.swift */,
 				1F956F5A1988AE2500621D15 /* Problem.swift */,
 				1F53DCCC1988919900343402 /* Solver.swift */,
@@ -271,7 +267,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1F0520E61A5C693000540AD5 /* Set.swift in Sources */,
 				1F7872101A5C96FB00BFECA8 /* NumericTypes.swift in Sources */,
 				1F0520E71A5C693200540AD5 /* Constraint.swift in Sources */,
 				1F0520E91A5C693600540AD5 /* Solver.swift in Sources */,
@@ -284,7 +279,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				1F0521421A5C93FD00540AD5 /* NumericTypes.swift in Sources */,
-				1F8515951A53A2A800F873D7 /* Set.swift in Sources */,
 				1F956F591988ADD000621D15 /* Constraint.swift in Sources */,
 				1F956F5B1988AE2500621D15 /* Problem.swift in Sources */,
 				1F53DCCD1988919900343402 /* Solver.swift in Sources */,

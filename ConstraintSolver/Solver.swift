@@ -226,9 +226,9 @@ func random_choice<T>(a: [T]) -> T {
 }
 
 func shuffle<C: MutableCollectionType where C.Index == Int>(var list: C) -> C {
-  let count = countElements(list)
-  for i in 0..<(count - 1) {
-    let j = Int(arc4random_uniform(UInt32(count - i))) + i
+  let c = count(list)
+  for i in 0..<(c - 1) {
+    let j = Int(arc4random_uniform(UInt32(c - i))) + i
     swap(&list[i], &list[j])
   }
   return list

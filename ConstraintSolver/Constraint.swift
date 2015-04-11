@@ -75,7 +75,7 @@ public class AllDifferentConstraint<T: Hashable> : Constraint<T> {
         if seen.contains(value) {
           return false
         }
-        seen.add(value)
+        seen.insert(value)
       }
     }
     
