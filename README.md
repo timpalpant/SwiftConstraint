@@ -55,7 +55,7 @@ Given a Sudoku "board" defined as an N^2 list of integers (0 if not yet filled i
 initialize a Problem with the Sudoku puzzle constraints, and use the BacktrackingSolver
 to solve it:
 
-```
+```swift
 public class SudokuPuzzle {
   let board: [Int]
   var problem: Problem<Int>
